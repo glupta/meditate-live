@@ -3,26 +3,27 @@
     <WebNavBar class="web-navbar-signedin-alert"></WebNavBar>
     <CalendarMain @date-active="onDateActive" class="calendar-main"></CalendarMain>
     <ScheduleNewPublicSoloMenuNEW @select-public='onSelectPublic' @select-new='onSelectNew' class="sessionoptions-text"></ScheduleNewPublicSoloMenuNEW>
-    <PublicSessions v-if="public_bool" :dateActive="date_active" @public-sched="onPublicSched" class="publicsession"></PublicSessions>
+    <PublicSessions v-if="public_bool" :dateActive="date_active" :refreshCount="refresh_count" @public-sched="onPublicSched" class="publicsession"></PublicSessions>
     <NewSession v-if="new_bool" :dateActive="date_active" @priv-info="onPrivInfo" @new-sched="onNewSched" class="newsessions"></NewSession>
     <div v-if="popup_bool" class="shadowoverlay"></div>
     <div v-if="popup_bool" class="popupwindow">
       <div class="relative-wrapper1">
         <div class="rectangle-popup"></div>
         <div class="headerbar"></div>
-        <img class="icons-xmark" src="@/assets/img/xmark.svg" @click="exitPopup"/>
+        <img v-if="popup_exit_bool" class="icons-xmark" src="@/assets/img/xmark.svg" @click="exitPopup"/>
         <p v-if="email_popup" class="popup-header">YOUR EMAIL</p>
         <p v-if="error_popup" class="popup-header">ERROR</p>
         <p v-if="invitesent_popup" class="popup-header">INVITATION SENT</p>
+        <p v-if="load_popup" class="popup-header">{{load_hdr}}</p>
       </div>
 
       <div v-if="email_popup" class="popup-text">
         <p class="great-please-enter">
-          Great! Please enter your email below to send the MINDSET invite.
+          Please enter your email below to access MINDSET.
         </p>
         <input v-model="user_email" class="input user-entry-signin" placeholder="Enter your email" />
         <div @click="onSubmitEmail" class="button-dark user-entry-signin">
-          <p class="confirm">CONFIRM</p>
+          <p class="confirm">SUBMIT</p>
         </div>
       </div>
 
@@ -35,7 +36,7 @@
 
       <div v-if="priv_popup" class="popup-text">
         <p class="looks-like-the-dura">
-          By selecting “Private,” your scheduled session will NOT show up on the Public Sessions list.
+          By selecting “Private,” your scheduled session will NOT show up in the Public Sessions.
         </p>
         <p @click="exitPopup" class="tosolosession">OK, GOT IT!</p>
       </div>
@@ -48,10 +49,10 @@
 
       <div v-if="invitesent_popup" class="popup-text">
         <p class="please-confirm-the-s">
-          Please confirm the session in the email confirmation.
+          We sent you an email. Please click on the link to confirm.
         </p>
-        <p class="see-details-below">See details below.</p>
-        <div class="partnerdetails">
+        <p v-if="!save_email_bool" class="see-details-below">See details below.</p>
+        <div v-if="!save_email_bool" class="partnerdetails">
           <div class="namebucket">
             <p class="nametext">Email:</p>
             <p class="num-900-am">{{user_email}}</p>
@@ -95,6 +96,7 @@ export default {
       new_bool: false,
       popup_bool: false,
       date_active: '',
+      refresh_count: 0,
       email_popup: false,
       user_email: '',
       invitesent_popup: false,
@@ -106,11 +108,16 @@ export default {
       sched_popup: false,
       load_popup: false,
       load_msg: '',
+      load_hdr: '',
       confirm_popup: false,
       priv_popup: false,
       public_submit_bool: false,
       public_hash: '',
-      invite_email: ''
+      invite_email: '',
+      save_email_bool: false,
+      cookie_bool: true,
+      confirm_hash_bool: false,
+      popup_exit_bool: true
     }
   },
   components: {
@@ -120,138 +127,15 @@ export default {
     NewSession,
     ScheduleNewPublicSoloMenuNEW,
   },
+  watch: { //set page title
+    $route: {
+      immediate: true,
+      handler(to, from) {
+        document.title = 'Schedule' || 'Some Default Title';
+      }
+    }
+  },
   mounted() {
-
-    if (this.$cookies.isKey('medlive')) {
-      let cookie_obj = this.$cookies.get('medlive');
-      this.user_id = cookie_obj.client_id;
-      console.log(this.user_id,": found cookie");
-      //extract email ID from database or cookie
-    }
-    else {
-      this.user_id = Math.random().toString(36).slice(-5);
-      let cookie_obj = new Object();
-      cookie_obj.client_id = this.user_id;
-      let cookie_json = JSON.stringify(cookie_obj);
-      this.$cookies.set('medlive',cookie_json,-1);
-      console.log("create cookie");
-      //this.popup_bool = true;
-      //capture email ID to store in database or cookie
-    }
-
-    //for users confirming sessions
-    this.session_hash = this.$route.query.id;
-    if (this.session_hash) { //if id query is given
-      this.popup_bool = true;
-      this.load_popup = true;
-      //user clicked wait link
-      if (this.session_hash.charAt(0) == 'w') {
-        this.room_name = this.session_hash.substring(2);
-        this.load_msg = "Joining...";
-        //check DB to see how long until starts
-        //get current time & get sched time from DB and find TAT
-        fetch('/api/joinroom?id=' + this.session_hash)
-        .then(response => {
-          if (response.status !== 200) { //server error handling
-            console.log(`Looks like there was a problem. Status code: ${response.status}`);
-            return;
-          }
-          response.json().then(data => {
-            this.load_popup = false;
-            if ('error' in data) { //error handling
-              this.error_msg = "There was an error while joining the session: " + data['error'] + ". Please try again.";
-              this.error_popup = true;
-            }
-            else {
-              this.user_duration = data['duration'] * 60;
-              let time_diff = data['time_diff'];
-              console.log("duration:",this.user_duration,"time:",time_diff);
-              if (time_diff > 300 || time_diff < 0) {
-                this.error_msg = "You are too early. The room will open 5 min. before the start time.";
-                this.error_popup = true;
-              }
-              else {
-                let request_url = '/api/createroom?room=' + this.room_name;
-                fetch(request_url)
-                .then(response => {
-                  if (response.status !== 200) { //server error handling
-                    console.log(`Looks like there was a problem. Status code: ${response.status}`);
-                    return;
-                  }
-                  response.json().then(data => { //info about client added to active users in DB
-                    console.log("data: ",data);
-                    if ('error' in data) { //error handling from testroom backend call
-                      console.log("create room error: ",data['error']);
-                      this.error_msg = "create room error: " + data['error'];
-                      this.error_popup = true;
-                      return;
-                    }
-
-                    //take room name from backend call
-                    if ('room_name' in data) {
-                      console.log(data['room_name']);
-                      router.push({
-                        name: "Room",
-                        params: {
-                          clientID: this.client_id, 
-                          roomName: this.room_name,
-                          medTime: parseInt(this.user_duration),
-                          skipStart: 0,
-                          sessionType: this.session_hash.charAt(1)
-                        }
-                      })
-                    }
-                    else {
-                      this.error_msg = "room name missing";
-                      this.error_popup = true;
-                      return;
-                    }
-                  });
-                })
-                .catch(error => { //error handling
-                  console.log("Fetch error: " + error);
-                });
-              }
-            }
-          });
-        })
-        .catch(error => { //error handling
-          console.log("Fetch error: " + error);
-        });
-
-        //if more than 5 minutes, popup to join later
-        //if less than 5 minutes, redirect to video chat
-      }
-      else { //confirm url
-        this.load_msg = "Confirming...";
-        //call server with session type and hash
-        let offset = new Date().getTimezoneOffset();
-        let fetch_url = '/api/schedemail?id=' + this.session_hash + '&tz=' + offset;
-        console.log("fetch:",fetch_url);
-        fetch(fetch_url)
-        .then(response => {
-          if (response.status !== 200) { //server error handling
-            console.log(`Looks like there was a problem. Status code: ${response.status}`);
-            return;
-          }
-          response.json().then(data => {
-            this.load_popup = false;
-            if ('error' in data) { //error handling
-              this.error_msg = "There was an error while confirming the session: " + data['error'] + ". Please try again.";
-              this.error_popup = true;
-              return;
-            }
-            if ('success' in data) {
-              console.log("successful");
-              this.confirm_popup = true;
-            }
-          });
-        })
-        .catch(error => { //error handling
-          console.log("Fetch error: " + error);
-        });
-      }
-    }
 
     fetch('/api/timedata') //get current datetime
     .then(response => {
@@ -275,6 +159,58 @@ export default {
     .catch(error => { //error handling
       console.log("Fetch error: " + error);
     });
+
+    //only set cookie if flagged
+    if (this.$cookies.isKey('mindset')) {
+      let cookie_obj = this.$cookies.get('mindset');
+      this.user_id = cookie_obj.client_id;
+      console.log(this.user_id,": found cookie");
+      //this.user_email = "akshaygupta54321@gmail.com";
+      //extract email ID from database or cookie
+      fetch('/api/getemail?id=' + this.user_id) //get current datetime
+      .then(response => {
+        if (response.status !== 200) { //server error handling
+          console.log(`Looks like there was a problem. Status code: ${response.status}`);
+          return;
+        }
+        response.json().then(data => {
+          console.log("get email data:",data);
+          this.load_popup = false;
+          if ('error' in data) { //error handling from testroom backend call
+            console.log("get email error: ",data['error']);
+            this.popup_exit_bool = false;
+            this.popup_bool = true;
+            this.email_popup = true;
+          }
+          else {
+            this.user_email = data['user_email'];
+            console.log("user email:",this.user_email);
+            //this.confirmHash();
+            
+            this.popup_exit_bool = false;
+            this.popup_bool = true;
+            this.load_hdr = "Under Construction";
+            this.load_msg = "Stay tuned for exciting updates soon!";
+            this.load_popup = true;
+          }
+        });
+      })
+      .catch(error => { //error handling
+        console.log("Fetch error: " + error);
+      });
+    }
+    else {
+      this.user_id = Math.random().toString(36).slice(-5);
+      let cookie_obj = new Object();
+      cookie_obj.client_id = this.user_id;
+      let cookie_json = JSON.stringify(cookie_obj);
+      this.$cookies.set('mindset',cookie_json,-1);
+      console.log("create cookie");
+      this.popup_exit_bool = false;
+      this.popup_bool = true;
+      this.email_popup = true;
+      //capture email ID to store in database or cookie
+    }
   },
   methods: {
     onDateActive(n) { //set active date if user selects new date
@@ -300,18 +236,18 @@ export default {
       this.load_popup = false;
       this.confirm_popup = false;
       this.priv_popup = false;
+      this.save_email_bool = false;
       this.popup_bool = false;
+      if (this.confirm_hash_bool) {
+        this.confirm_hash_bool = false;
+        this.confirmHash();
+      }
+      this.refresh_count += 1;
+      console.log("refresh:",this.refresh_count);
     },
     onPrivInfo() {
       this.popup_bool = true;
       this.priv_popup = true;
-    },
-    onPublicSched(hash) {
-      console.log("hash:",hash);
-      this.public_hash = hash;
-      this.popup_bool = true;
-      this.email_popup = true;
-      this.public_submit_bool = true;
     },
     onNewSched(sched,duration,invite,priv) { //submit new session request
       this.public_submit_bool = false;
@@ -322,8 +258,14 @@ export default {
         this.error_popup = true;
         return;
       }
+      // let user_duration = parseInt(duration);
+      // if (isNaN(user_duration) || user_duration < 5 || user_duration > 60 || user_duration % 5 > 0) {
+      //   this.error_msg = "The duration is invalid. Please pick a time between 5 and 60 minutes in increments of 5 minutes.";
+      //   this.error_popup = true;
+      //   return;
+      // }
       let user_duration = parseInt(duration);
-      if (isNaN(user_duration) || user_duration < 5 || user_duration > 60 || user_duration % 5 > 0) {
+      if (isNaN(user_duration) || user_duration > 60) {
         this.error_msg = "The duration is invalid. Please pick a time between 5 and 60 minutes in increments of 5 minutes.";
         this.error_popup = true;
         return;
@@ -341,103 +283,303 @@ export default {
         return;
       }
 
+      this.load_msg = "Scheduling...";
+      this.load_popup = true;
       this.sched_time = sched;
       this.user_duration = user_duration;
       this.invite_email = invite;
       this.priv_bool = priv;
-      this.email_popup = true;
+      var moment = require('moment');
+      moment().format();
+      this.sched_time_format = this.sched_time;
+      this.sched_time_format = moment(this.sched_time_format).format('ddd MMM D LT');
+      console.log("sched format:",this.sched_time_format);
+      let offset = new Date().getTimezoneOffset();
+
+      let sched_time_local = this.sched_time.toString();
+      var entry = {
+        user_id: this.user_id,
+        user_email: this.user_email,
+        sched_time: this.sched_time,
+        sched_time_local: sched_time_local,
+        session_hash: this.public_hash,
+        invite_email: this.invite_email,
+        duration: this.user_duration,
+        private_bool: (this.priv_bool) ? 1 : 0,
+        offset: offset
+      };
+      fetch('/api/schednew', {
+        method: "POST",
+        body: JSON.stringify(entry),
+        headers: new Headers({
+        "content-type": "application/json"
+        })
+      })
+      .then(response => {
+        if (response.status !== 200) { //server error handling
+          console.log(`Looks like there was a problem. Status code: ${response.status}`);
+          return;
+        }
+        response.json().then(data => {
+          this.load_popup = false;
+          console.log("session data:",data);
+          if ('error' in data) { //error handling from backend call
+            this.error_msg = "There was an error while scheduling the session: " + data['error'] + ". Please try again.";
+            this.error_popup = true;
+            return;
+          }
+          if ('success' in data) { //inserted into sessions table
+            console.log("session scheduled");
+            //this.invitesent_popup = true;
+            this.confirm_popup = true;
+            this.refreshSessions(); //refresh session list
+          }
+        });
+      })
+      .catch(error => { //error handling
+        console.log("Fetch error: " + error);
+      });
+    },
+    onPublicSched(hash) {
+      console.log("hash:",hash);
+      this.public_hash = hash;
+      this.popup_bool = true;
+      this.load_msg = "Scheduling...";
+      this.load_popup = true;
+      
+      let offset = new Date().getTimezoneOffset();
+      let fetch_url = '/api/schedpublic?hash=' + this.public_hash + '&email=' + this.user_email + '&id=' + this.user_id + '&tz=' + offset;
+      fetch(fetch_url)
+      .then(response => {
+        if (response.status !== 200) { //server error handling
+        console.log(`Looks like there was a problem. Status code: ${response.status}`);
+        return;
+        }
+        response.json().then(data => {
+          this.load_popup = false;
+          if ('error' in data) { //error handling from testroom backend call
+            console.log("request time error: ",data['error']);
+            this.error_msg = "Public scheduling error: " + data['error'];
+            this.error_popup = true;
+            return;
+          }
+          else if ('success' in data) {
+            //update sched time and duration details
+            //var moment = require('moment');
+            //moment().format();
+            //this.sched_time_format = new Date(data['sched_time']);
+            //this.sched_time_format = moment(this.sched_time_format).format('ddd MMM D LT');
+            //this.user_duration = data['duration'];
+            //this.invitesent_popup = true;
+            this.confirm_popup = true;
+            //this.refreshSessions(); //refresh session list
+          }
+        });
+      })
+      .catch(error => { //error handling
+        console.log("Fetch error: " + error);
+      });
     },
     onSubmitEmail() { //user submits email
       console.log("email:",this.user_email);
-      this.email_popup = false;
       const re = /\S+@\S+\.\S+/;
       if (!re.test(this.user_email)) {
-        this.error_msg = "Your email is invalid. Please try again.";
-        this.error_popup = true;
+        alert("Your email is invalid. Please try again.");
         return;
       }
-      this.load_msg = "Scheduling...";
+      this.load_msg = "Saving...";
+      this.email_popup = false;
       this.load_popup = true;
-
-      if (this.public_submit_bool) {
-        let fetch_url = '/api/schedpublic?hash=' + this.public_hash + '&email=' + this.user_email + '&id=' + this.user_id;
-        fetch(fetch_url)
-        .then(response => {
-          if (response.status !== 200) { //server error handling
+      //add to DB if not there already
+      let fetch_url = '/api/storeemail?id=' + this.user_id + '&em=' + this.user_email;
+      fetch(fetch_url) //get current datetime
+      .then(response => {
+        if (response.status !== 200) { //server error handling
           console.log(`Looks like there was a problem. Status code: ${response.status}`);
           return;
-          }
-          response.json().then(data => {
-            this.load_popup = false;
-            if ('error' in data) { //error handling from testroom backend call
-              console.log(this.client_id,": request time error: ",data['error']);
-              this.error_msg = "Public scheduling error: " + data['error'];
-              this.error_popup = true;
-              return;
-            }
-            else if ('sched_time' in data && 'duration' in data) {
-              //update sched time and duration details
-              var moment = require('moment');
-              moment().format();
-              this.sched_time_format = new Date(data['sched_time']);
-              this.sched_time_format = moment(this.sched_time_format).format('ddd MMM D LT');
-              this.user_duration = data['duration'];
-              this.invitesent_popup = true;
-            }
-          });
-        })
-        .catch(error => { //error handling
-          console.log("Fetch error: " + error);
-        });
-      }
-      else {
-        var moment = require('moment');
-        moment().format();
-        this.sched_time_format = this.sched_time;
-        this.sched_time_format = moment(this.sched_time_format).format('ddd MMM D LT');
-        console.log("sched format:",this.sched_time_format);
-
-        let sched_time_local = this.sched_time.toString();
-        var entry = {
-          user_id: this.user_id,
-          user_email: this.user_email,
-          sched_time: this.sched_time,
-          sched_time_local: sched_time_local,
-          session_hash: this.public_hash,
-          invite_email: this.invite_email,
-          duration: this.user_duration,
-          private_bool: (this.priv_bool) ? 1 : 0
-        };
-        fetch('/api/schednew', {
-          method: "POST",
-          body: JSON.stringify(entry),
-          headers: new Headers({
-          "content-type": "application/json"
-          })
-        })
-        .then(response => {
-          if (response.status !== 200) { //server error handling
-            console.log(`Looks like there was a problem. Status code: ${response.status}`);
+        }
+        response.json().then(data => {
+          //this.load_popup = false;
+          this.load_hdr = "Under Construction";
+          this.load_msg = "Stay tuned for exciting updates soon!";
+          console.log("save email data:",data);
+          if ('error' in data) { //error handling from testroom backend call
+            console.log("save email error: ",data['error']);
+            this.error_msg = "There was an error while saving your email: " + data['error'] + ". Please try again.";
+            this.error_popup = true;
             return;
           }
-          response.json().then(data => {
-            this.load_popup = false;
-            console.log("session data:",data);
-            if ('error' in data) { //error handling from backend call
-              this.error_msg = "There was an error while scheduling the session: " + data['error'] + ". Please try again.";
-              this.error_popup = true;
+          else if ('user_id' in data) {
+            console.log("user id found");
+            // this.user_id = data['user_id'];
+            // let cookie_obj = new Object();
+            // if (this.$cookies.isKey('mindset')) {
+            //   cookie_obj = this.$cookies.get('mindset');
+            // }
+            // cookie_obj.client_id = this.user_id;
+            // let cookie_json = JSON.stringify(cookie_obj);
+            // this.$cookies.set('mindset',cookie_json,-1);
+            // console.log("updated cookie",this.user_id,this.user_email);
+            // this.popup_bool = false;
+            // this.confirmHash();
+          }
+          else if ('success' in data) {
+            console.log("user email saved:");
+            // this.save_email_bool = true;
+            // this.invitesent_popup = true;
+            // this.confirm_hash_bool = true;
+          }
+        });
+      })
+      .catch(error => { //error handling
+        console.log("Fetch error: " + error);
+      });
+    },
+    confirmHash() {
+      //for users confirming sessions
+      this.session_hash = this.$route.query.id;
+      if (this.session_hash) { //if id query is given
+        this.popup_bool = true;
+        this.load_popup = true;
+        //confirm email ID
+        if (this.session_hash.charAt(0) == 'e') {
+          this.cookie_bool = false;
+          this.load_msg = "Registering...";
+          fetch('/api/confirmemail?id=' + this.session_hash) //get current datetime
+          .then(response => {
+            if (response.status !== 200) { //server error handling
+              console.log(`Looks like there was a problem. Status code: ${response.status}`);
               return;
             }
-            if ('success' in data) { //inserted into sessions table
-              console.log("session scheduled");
-              this.invitesent_popup = true;
-              //this.refreshSessions(); //refresh session list
-            }
+            response.json().then(data => {
+              console.log("confirm email data:",data);
+              this.load_popup = false;
+              if ('error' in data) { //error handling from testroom backend call
+                console.log("confirm email error: ",data['error']);
+                this.email_popup = true;
+              }
+              else {
+                console.log("registered!");
+                this.user_id = data['user_id'];
+                this.user_email = data['user_email'];
+                let cookie_obj = new Object();
+                cookie_obj.client_id = this.user_id;
+                let cookie_json = JSON.stringify(cookie_obj);
+                this.$cookies.set('mindset',cookie_json,-1);
+                console.log("updated cookie",this.user_id,this.user_email);
+                this.popup_bool = false;
+              }
+            });
+          })
+          .catch(error => { //error handling
+            console.log("Fetch error: " + error);
           });
-        })
-        .catch(error => { //error handling
-          console.log("Fetch error: " + error);
-        });
+        }
+        //user clicked wait link to start video chat
+        else if (this.session_hash.charAt(0) == 'w') {
+          this.room_name = this.session_hash.substring(2);
+          this.load_msg = "Joining...";
+          //check DB to see how long until starts
+          //get current time & get sched time from DB and find TAT
+          fetch('/api/joinroom?id=' + this.session_hash)
+          .then(response => {
+            if (response.status !== 200) { //server error handling
+              console.log(`Looks like there was a problem. Status code: ${response.status}`);
+              return;
+            }
+            response.json().then(data => {
+              this.load_popup = false;
+              if ('error' in data) { //error handling
+                this.error_msg = "There was an error while joining the session: " + data['error'] + ". Please try again.";
+                this.error_popup = true;
+              }
+              else { //join room if less than 5 minutes
+                this.user_duration = data['duration'] * 60;
+                let time_diff = data['time_diff'];
+                console.log("duration:",this.user_duration,"time:",time_diff);
+                //if (time_diff > 300 || time_diff < 0) {
+                if (time_diff < 0) {
+                  this.error_msg = "You are too early or too late. The room is only open for 5 minutes before the start time.";
+                  this.error_popup = true;
+                }
+                else {
+                  let request_url = '/api/createroom?room=' + this.room_name;
+                  fetch(request_url)
+                  .then(response => {
+                    if (response.status !== 200) { //server error handling
+                      console.log(`Looks like there was a problem. Status code: ${response.status}`);
+                      return;
+                    }
+                    response.json().then(data => { //info about client added to active users in DB
+                      console.log("data: ",data);
+                      if ('error' in data) { //error handling from testroom backend call
+                        console.log("create room error: ",data['error']);
+                        this.error_msg = "create room error: " + data['error'];
+                        this.error_popup = true;
+                        return;
+                      }
+
+                      //take room name from backend call
+                      if ('room_name' in data) {
+                        console.log(data['room_name']);
+                        router.push({
+                          name: "Room",
+                          params: {
+                            clientID: this.user_id, 
+                            roomName: this.room_name,
+                            medTime: parseInt(this.user_duration),
+                            skipStart: 0,
+                            sessionType: this.session_hash.charAt(1)
+                          }
+                        })
+                      }
+                      else {
+                        this.error_msg = "room name missing";
+                        this.error_popup = true;
+                        return;
+                      }
+                    });
+                  })
+                  .catch(error => { //error handling
+                    console.log("Fetch error: " + error);
+                  });
+                }
+              }
+            });
+          })
+          .catch(error => { //error handling
+            console.log("Fetch error: " + error);
+          });
+        } //confirm url for invite emails
+        else if (this.session_hash.charAt(0) == 'i') { 
+          this.load_msg = "Confirming...";
+          //call server with session type and hash
+          let offset = new Date().getTimezoneOffset();
+          let fetch_url = '/api/schedinvite?id=' + this.session_hash + '&tz=' + offset + '&ui=' + this.user_id + '&ue=' + this.user_email;
+          console.log("fetch:",fetch_url);
+          fetch(fetch_url)
+          .then(response => {
+            if (response.status !== 200) { //server error handling
+              console.log(`Looks like there was a problem. Status code: ${response.status}`);
+              return;
+            }
+            response.json().then(data => {
+              this.load_popup = false;
+              if ('error' in data) { //error handling
+                this.error_msg = "There was an error while confirming the session: " + data['error'] + ". Please try again.";
+                this.error_popup = true;
+                return;
+              }
+              if ('success' in data) {
+                console.log("successful");
+                this.confirm_popup = true;
+              }
+            });
+          })
+          .catch(error => { //error handling
+            console.log("Fetch error: " + error);
+          });
+        }
       }
     }
   }
@@ -664,6 +806,7 @@ export default {
   text-align: center;
   letter-spacing: 2px;
   /*margin-top: 40px;*/
+  margin-bottom: 16px;
 }
 .see-details-below {
   width: 579px;

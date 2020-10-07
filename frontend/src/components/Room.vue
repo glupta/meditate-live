@@ -5,7 +5,30 @@
   </div-->
 
   <div class="fullpages-room-pre-permissions">
-    <WebNavbarRoom @start-timer="startTimer" :timeLimit="time_limit" :sessionCopy="session_copy" :sessionCopyRight="session_copy_right" @timer-expired="endTimer" class="web-navbar-room-pre"></WebNavbarRoom>
+    <div class="room-header">
+      <div class="group-left">
+        <div @click="onSelectBack" class="room-backbutton">
+          <img class="icons-chevron-left" src="@/assets/img/chevron-left.svg"/>
+        </div>
+        <p class="please-be-sure-to-ac">
+          {{session_copy}}
+        </p>
+      </div>
+      <div class="group-right">
+        <p class="time-until-session-s">
+          {{session_copy_right}}
+        </p>
+        <div class="signedin-alertdot">
+          <div class="oval"></div>
+        </div>
+        <!--p class="timer">1:47</p-->
+        <Timer :timeLimit='time_limit' @timer-expired="onTimerExpired" class="timer"></Timer>
+        <div class="rectangle"></div>
+        <div @click="onRightButton" class="group2">
+          <p class="sign-in">{{right_button}}</p>
+        </div>
+      </div>
+    </div>
     <!--div class="relative-wrapper1">
       <div class="partner"></div>
       <div class="user"></div-->
@@ -19,7 +42,7 @@
 </template>
 
 <script>
-import WebNavbarRoom from '@/components/WebNavbarRoom'
+import Timer from '@/components/Timer'
 import router from '@/router'
 export default {
   name: "Call",
@@ -28,12 +51,12 @@ export default {
       time_limit: 0,
       session_copy: '',
       session_copy_right: '',
-      session_status: ''
-      DAILYID: 'meditate-live' //use meditate or meditate-live
+      right_button: '',
+      DAILYID: 'mindset-ooo' //mindset-ooo, meditate, meditate-live
     }
   },
   components: {
-    WebNavbarRoom
+    Timer
   },
   props: {
     clientID: String,
@@ -46,14 +69,81 @@ export default {
   mounted() {
 
     this.killVidChat(); //delete any loose iframe
-    this.session_status = 'start';
+    this.right_button = 'START';
     this.room_name = "room1";
 
     if (this.roomName) {
+      this.med_time = this.medTime;
+      this.session_type = this.sessionType;
+      let cookie_obj = new Object();
+      if (this.$cookies.isKey('mindset')) {
+        cookie_obj = this.$cookies.get('mindset');
+      }
+      cookie_obj.room_name = this.roomName;
+      cookie_obj.session_type = this.session_type;
+      let cookie_json = JSON.stringify(cookie_obj);
+      this.$cookies.set('mindset',cookie_json,-1);
+      console.log("updated cookie");
       this.room_name = this.roomName;
+      this.sessionLoad();
+    }
+    else if (this.$cookies.isKey('mindset')) {
+      let cookie_obj = this.$cookies.get('mindset');
+      if (cookie_obj.hasOwnProperty('session_type')) {
+        this.session_type = cookie_obj.session_type;
+      }
+      if (cookie_obj.hasOwnProperty('room_name')) {
+        this.room_name = cookie_obj.room_name;
+        console.log("room:",this.room_name);
+        let fetch_url = '/api/roomdetails?room=' + this.room_name;
+        console.log("fetch:",fetch_url);
+        fetch(fetch_url)
+        .then(response => {
+          if (response.status !== 200) { //server error handling
+            console.log(`Looks like there was a problem. Status code: ${response.status}`);
+            return;
+          }
+          response.json().then(data => {
+
+            //console.log("wr time data:",data);
+            if ('error' in data) { //error handling from testroom backend call
+              //console.log(this.client_id,": flush active users DB error: ",data['error']);
+              alert("room details error: " + data['error']);
+              return;
+            }
+            else if ('status' in data) {
+              this.med_time = parseInt(data['duration']) * 60;
+              this.right_button = data['status'];
+              if (this.right_button == 'READY') {
+                this.checkStartCal(true);
+                this.startInterval = setInterval(() => this.checkStartCal(false), 1000);
+              }
+              if ('time_diff' in data) {
+                this.time_limit = data['time_diff'];
+              }
+              this.sessionLoad();
+            }
+          });
+        })
+        .catch(error => { //error handling
+          console.log("Fetch error: " + error);
+        });
+      }
+      else {
+        router.push({ name: "FullscreenTest" });
+      }
+    }
+    else {
+      router.push({ name: "FullscreenTest" });
     }
 
-    this.sessionLoad();
+    //kick out at sched + 5 min
+    //if reload and start field is empty (before start)
+    //if reload and start field is filled and other is empty (waiting)
+    //if reload and start field is filled and other is filled within 15 min of later (during)
+    //if reload and start field is filled and other is filled after 15 min of later (debrief)
+    //kick out at sched + duration + 10 min
+
 
     // if (this.clientID && this.roomName) { //connect if client ID & room name given
 
@@ -129,6 +219,30 @@ export default {
   },
 
   watch: { //set page title
+    right_button(newValue) {
+      if (this.right_button == 'START') {
+        this.session_copy = "Please accept mic and video permissions"
+        this.session_copy_right = "Get ready";
+
+        //change this later when database has both columns for joining timestamp
+        setTimeout(() => this.session_copy = "Say hello to partner",10 * 1000);
+        this.time_limit = 300;
+      }
+      else if (this.right_button == 'READY') {
+        this.session_copy = "Waiting for your partner to START";
+        this.session_copy_right = "Hold on";
+        this.time_limit = 60;
+      }
+      else if (this.right_button == 'PAUSE') {
+        this.session_copy = "Please begin meditation";
+        this.session_copy_right = 'Session started';
+      }
+      else if (this.right_button == 'EXIT') {
+        this.session_copy = "Thank your partner";
+        this.session_copy_right = "Session ended";
+        this.time_limit = 300;
+      }
+    },
     $route: {
       immediate: true,
       handler(to, from) {
@@ -157,13 +271,14 @@ export default {
   },
 
   methods: {
-
+    onSelectBack() {
+      console.log("back");
+      router.push({ name: "FullscreenTest" });
+    },
     sessionLoad() { //load video chat with room name
-
       var entry = {
         room_name: this.room_name
       };
-
       fetch('/api/roomtoken', { //get room token
       method: "POST",
       body: JSON.stringify(entry),
@@ -220,24 +335,27 @@ export default {
       });
     },
 
-    startTimer() { //timer starts when both users press START
+    onRightButton() { //timer starts when both users press START
 
-      //load audio file, overcome autoplay issue
-      if (!this.med_bell) {
-        this.med_bell = new Audio(require('@/assets/meditationbell.mp3'));
-        //console.log('new audio');
+      if (this.right_button == 'START') {
+        this.right_button = "READY";
+        //load audio file, overcome autoplay issue
+        if (!this.med_bell) {
+          this.med_bell = new Audio(require('@/assets/meditationbell.mp3'));
+          //console.log('new audio');
+        }
+
+        //workaround to loop audio on mute
+        this.med_bell.muted = true;
+        this.med_bell.loop = true;
+        this.med_bell.play();
+        //check if both users pressed start
+        this.checkStartCal(true);
+        this.startInterval = setInterval(() => this.checkStartCal(false), 1000);
       }
-
-      //workaround to loop audio on mute
-      this.med_bell.muted = true;
-      this.med_bell.loop = true;
-      this.med_bell.play();
-
-      this.session_copy = "Waiting for your partner to START";
-
-      //check if both users pressed start
-      this.checkStartCal(true);
-      this.startInterval = setInterval(() => this.checkStartCal(false), 1000);
+      else if (this.right_button == 'EXIT') {
+        router.push({ name: 'SessionEnd2' });
+      }
     },
 
     checkStartCal(update_start) { //check every sec if both users pressed start
@@ -248,7 +366,7 @@ export default {
       }
 
       //create get URL
-      var request_url = '/api/checkstartcal?id=' + this.sessionType + this.room_name;
+      var request_url = '/api/checkstartcal?id=' + this.session_type + this.room_name;
       if (update_start) request_url += '&start=1';
 
       fetch(request_url)
@@ -288,12 +406,9 @@ export default {
 
     beginMeditation() { //begin meditation for duration
 
-      this.session_status = 'meditate';
-      this.session_copy = "Please begin meditation";
-      this.session_copy_right = 'Session started';
-
-      console.log("med time is:",this.medTime);
-      this.time_limit = (this.medTime > 0) ? this.medTime : 15 * 60;
+      this.right_button = "PAUSE"; //want to change to pause later
+      console.log("med time is:",this.med_time);
+      this.time_limit = (this.med_time > 0) ? this.med_time : 15 * 60;
 
       //set cookie for start time
       // if (this.$cookies.isKey('medlive')) {
@@ -326,16 +441,13 @@ export default {
       // }
     },
 
-    endTimer() {
+    onTimerExpired() {
 
-      if (this.session_status == 'meditate') {
+      if (this.right_button == "PAUSE") {
         this.bellRings();
-        this.time_limit = 300;
-        this.session_copy = "Thank your partner";
-        this.session_copy_right = "Session ended";
-        this.session_status = 'done';
+        this.right_button = "EXIT";
       }
-      else if (this.session_status == 'done') {
+      else if (this.right_button == "EXIT") {
         router.push({ name: 'SessionEnd2' });
       }
       else {
@@ -438,5 +550,121 @@ export default {
   position: absolute;
   right: 38px;
   bottom: 24px;
+}
+
+.room-header {
+  padding: 12px 44px 12px 10px;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(
+    91deg,
+    rgba(239, 235, 220, 1) 42%,
+    rgba(191, 180, 139, 1) 161%
+  );
+}
+.room-backbutton {
+  background-color: rgba(102, 102, 102, 0.15);
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  margin-right: 24px;
+  margin-left: 10px;
+  cursor: pointer;
+}
+.please-be-sure-to-ac {
+  /*width: 620px;*/
+  font-family: "Source Sans Pro";
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 27px;
+  color: rgba(66, 62, 61, 1);
+  text-transform: uppercase;
+  margin-right: 163px;
+  letter-spacing: 1px;
+}
+.group-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.group-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.time-until-session-s {
+  width: 284px;
+  font-family: "Source Sans Pro";
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 27px;
+  color: rgba(66, 62, 61, 1);
+  text-align: right;
+  text-transform: uppercase;
+  margin-right: 16px;
+  letter-spacing: 1px;
+}
+.signedin-alertdot {
+  background-color: rgba(255, 91, 91, 1);
+  margin-right: 12px;
+  border-radius: 50%;
+  padding: 6px 5px 5px 6px;
+  display: flex;
+  align-items: flex-start;
+}
+.oval {
+  width: 5px;
+  height: 5px;
+  background-color: rgba(238, 242, 244, 1);
+  border-radius: 50%;
+}
+.timer {
+  font-family: "Source Sans Pro";
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 24px;
+  color: rgba(66, 62, 61, 1);
+  text-align: center;
+  margin-right: 16px;
+  letter-spacing: 2px;
+}
+.rectangle {
+  width: 2px;
+  height: 24px;
+  background-color: rgba(63, 80, 42, 1);
+  margin-right: 16px;
+  border-radius: 1px;
+}
+
+.icons-chevron-left {
+  width: 24px;
+  height: 24px;
+}
+
+.group2 {
+  border-radius: 21px;
+  padding: 10px 0px 8px;
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+  background: linear-gradient(
+    106deg,
+    rgba(80, 88, 75, 1) 61%,
+    rgba(104, 119, 94, 1) 61%,
+    rgba(41, 44, 37, 1) 125%
+  );
+}
+.sign-in {
+  width: 136px;
+  font-family: "Source Sans Pro";
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 24px;
+  color: rgba(251, 250, 250, 1);
+  text-align: center;
+  letter-spacing: 1px;
 }
 </style>

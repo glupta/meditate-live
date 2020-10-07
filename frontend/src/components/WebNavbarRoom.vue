@@ -34,7 +34,8 @@ export default {
     return {
       time_limit: 0,
       session_copy: '',
-      session_copy_right: "Get ready"
+      session_copy_right: "Get ready",
+      right_button: 'START'
     }
   },
   components: {
@@ -93,6 +94,10 @@ export default {
   );
 }
 .room-backbutton {
+  background-color: rgba(102, 102, 102, 0.15);
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
   margin-right: 24px;
   margin-left: 10px;
   cursor: pointer;
@@ -162,12 +167,6 @@ export default {
   border-radius: 1px;
 }
 
-.room-backbutton {
-  background-color: rgba(102, 102, 102, 0.15);
-  padding: 12px;
-  display: flex;
-  align-items: flex-start;
-}
 .icons-chevron-left {
   width: 24px;
   height: 24px;

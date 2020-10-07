@@ -5,15 +5,22 @@
     <div class="divider-1-copy-4"></div>
     <p class="a-socially-accountab">
       <strong class="asociallyaccountabemphasis1">
-        A socially accountable way to meditate.
+        A selective community of high achievers,
+        <br>
+        passionate about wellbeing & personal growth.
       </strong>
-      <strong class="asociallyaccountabemphasis2"></strong>
-      Build better habits to build a better you.
+      <!--strong class="asociallyaccountabemphasis2"></strong>
+      Build better habits to build a better you.-->
     </p>
-    <div class="button-dark button1">
-      <p class="confirm" @click="onSelectTry">TRY MINDSET</p>
-    </div>
-    <div class="divider-1"></div>
+
+    <!--div class="phone-number">
+      <p class="us-zip"> +1 </p>
+      <input class="copy5" placeholder="Enter 10-digit phone number" />
+      <div class="button-dark button1">
+        <p class="confirm" @click="onSubmitPhone">SUBMIT</p>
+      </div>
+    </div-->
+    <!--div class="divider-1"></div>
     <div class="flex-wrapper1">
       <img class="landing-page-img" src="@/assets/img/LandingPage_Image.jpg"/>
       <div class="flex-wrapper5">
@@ -65,7 +72,7 @@
         class="path-2"
         src="https://static.overlay-tech.com/assets/95af05cc-8954-4e24-a7bb-c6e4b1abe57d.svg"
       /><FooterBar class="footerbar"></FooterBar>
-    </div>
+    </div-->
   </div>
 </template>
 
@@ -78,6 +85,9 @@ export default {
   methods: {
     onSelectTry() {
       router.push({ name: "FullscreenTest" });
+    },
+    onSubmitPhone() {
+      //capture phone number
     }
   },
   watch: { //set page title
@@ -106,18 +116,18 @@ export default {
 .mindset {
   width: 458px;
   height: 72px;
-  margin-bottom: 54px;
+  margin-bottom: 32px;
   /*margin-left: 491px;*/
 }
 .divider-1-copy-4 {
   width: 160px;
   height: 2px;
   background-color: rgba(230, 232, 227, 1);
-  margin-bottom: 61px;
+  margin-bottom: 32px;
   /*margin-left: 640px;*/
 }
 .a-socially-accountab {
-  max-width: 640px;
+  max-width: 720px;
   font-family: "Source Sans Pro";
   font-size: 24px;
   font-weight: 600;
@@ -125,7 +135,7 @@ export default {
   color: rgba(66, 62, 61, 1);
   text-align: center;
   text-transform: uppercase;
-  margin-bottom: 35px;
+  margin-bottom: 32px;
   /*margin-left: 415px;*/
   letter-spacing: 3px;
 }
@@ -136,6 +146,8 @@ export default {
   line-height: 36px;
   color: rgba(66, 62, 61, 1);
   letter-spacing: 3px;
+  width: 720px;
+  margin-bottom: 32px;
 }
 .asociallyaccountabemphasis2 {
   font-family: "Source Sans Pro";
@@ -146,7 +158,7 @@ export default {
   letter-spacing: 3px;
 }
 .button1 {
-  margin-bottom: 124px;
+  /*margin-bottom: 124px;*/
   /*margin-left: 626px;*/
 }
 .divider-1 {
@@ -370,7 +382,7 @@ export default {
   );
 }
 .confirm {
-  width: 160px;
+  width: 72px;
   font-family: "Source Sans Pro";
   font-size: 14px;
   font-weight: 600;
@@ -380,5 +392,40 @@ export default {
   text-transform: uppercase;
   letter-spacing: 2px;
   cursor: pointer;
+}
+
+.copy5 {
+  margin-right: 16px;
+  width: 264px;
+  background-color: rgba(250, 251, 251, 1);
+  border-radius: 5px;
+  padding: 14px 12px 14px 12px;
+  border: 1px solid rgba(63, 80, 42, 0.25);
+  font-family: "Source Sans Pro";
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  color: rgba(66, 62, 61, 1);
+  letter-spacing: 2px;
+  &::placeholder {
+    width: 267px;
+    font-family: "Source Sans Pro";
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 24px;
+    color: rgba(66, 62, 61, 1);
+    opacity: 0.5;
+    letter-spacing: 2px;
+  }
+}
+
+.us-zip {
+  margin-right: 16px;
+}
+
+.phone-number {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
 }
 </style>

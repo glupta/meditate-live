@@ -22,6 +22,8 @@
     </div>
     <p class="leave-notes-below-as">
       What did you notice about your thoughts?
+      <br>
+      Feel free to log a journal entry below.
     </p>
     <textarea v-model="notes_input" class="input" placeholder="Type your observations here">
     </textarea>

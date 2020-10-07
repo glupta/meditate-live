@@ -80,16 +80,18 @@ export default {
     }
   },
   props: [
-    'dateActive'
+    'dateActive',
+    'refreshCount'
   ],
   mounted() {
+    this.offset = new Date().getTimezoneOffset();
     if (this.dateActive != '') {
       this.refreshList();
     }
   },
   methods: {
     refreshList() {
-      fetch('/api/sessionlist?date=' + this.dateActive.toISOString())
+      fetch('/api/sessionlist?date=' + this.dateActive.toISOString() + '&tz=' + this.offset)
       .then(response => {
         if (response.status !== 200) { //server error handling
           console.log(`Looks like there was a problem. Status code: ${response.status}`);
@@ -204,6 +206,9 @@ export default {
   },
   watch: {
     dateActive(newValue) {
+      this.refreshList();
+    },
+    refreshCount(newValue) {
       this.refreshList();
     }
   }
