@@ -1,13 +1,7 @@
-Work in progress - don't use this yet
+Schedule and participate in live 1on1 video chat based meditation sessions.
 
-Environment configuration:
-Install VSCode https://code.visualstudio.com/
+Please check us out at: https://www.meditatelive.org
 
-To run the app locally:
-`./run.sh`
-go to localhost:5000
+Watch the demo video here: https://www.youtube.com/watch?v=9nN1OXr7Y38
 
-To see the latest version of the app on master:
-meditationhub.ngrok.io
-
-In the fullness of time
+Tech stack: Sketch / Vue.js / Flask / AWS
