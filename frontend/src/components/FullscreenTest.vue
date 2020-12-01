@@ -185,13 +185,13 @@ export default {
           else {
             this.user_email = data['user_email'];
             console.log("user email:",this.user_email);
-            //this.confirmHash();
+            this.confirmHash();
             
-            this.popup_exit_bool = false;
-            this.popup_bool = true;
-            this.load_hdr = "Under Construction";
-            this.load_msg = "Stay tuned for exciting updates soon!";
-            this.load_popup = true;
+            // this.popup_exit_bool = false;
+            // this.popup_bool = true;
+            // this.load_hdr = "Under Construction";
+            // this.load_msg = "Stay tuned for exciting updates soon!";
+            // this.load_popup = true;
           }
         });
       })
@@ -258,18 +258,18 @@ export default {
         this.error_popup = true;
         return;
       }
-      // let user_duration = parseInt(duration);
-      // if (isNaN(user_duration) || user_duration < 5 || user_duration > 60 || user_duration % 5 > 0) {
-      //   this.error_msg = "The duration is invalid. Please pick a time between 5 and 60 minutes in increments of 5 minutes.";
-      //   this.error_popup = true;
-      //   return;
-      // }
       let user_duration = parseInt(duration);
-      if (isNaN(user_duration) || user_duration > 60) {
+      if (isNaN(user_duration) || user_duration < 5 || user_duration > 60 || user_duration % 5 > 0) {
         this.error_msg = "The duration is invalid. Please pick a time between 5 and 60 minutes in increments of 5 minutes.";
         this.error_popup = true;
         return;
       }
+      // let user_duration = parseInt(duration);
+      // if (isNaN(user_duration) || user_duration > 60) {
+      //   this.error_msg = "The duration is invalid. Please pick a time between 5 and 60 minutes in increments of 5 minutes.";
+      //   this.error_popup = true;
+      //   return;
+      // }
       //check if invite email is valid
       const re = /\S+@\S+\.\S+/;
       if (invite != '' && !re.test(invite)) {
@@ -399,9 +399,9 @@ export default {
           return;
         }
         response.json().then(data => {
-          //this.load_popup = false;
-          this.load_hdr = "Under Construction";
-          this.load_msg = "Stay tuned for exciting updates soon!";
+          this.load_popup = false;
+          //this.load_hdr = "Under Construction";
+          //this.load_msg = "Stay tuned for exciting updates soon!";
           console.log("save email data:",data);
           if ('error' in data) { //error handling from testroom backend call
             console.log("save email error: ",data['error']);
@@ -411,23 +411,23 @@ export default {
           }
           else if ('user_id' in data) {
             console.log("user id found");
-            // this.user_id = data['user_id'];
-            // let cookie_obj = new Object();
-            // if (this.$cookies.isKey('mindset')) {
-            //   cookie_obj = this.$cookies.get('mindset');
-            // }
-            // cookie_obj.client_id = this.user_id;
-            // let cookie_json = JSON.stringify(cookie_obj);
-            // this.$cookies.set('mindset',cookie_json,-1);
-            // console.log("updated cookie",this.user_id,this.user_email);
-            // this.popup_bool = false;
-            // this.confirmHash();
+            this.user_id = data['user_id'];
+            let cookie_obj = new Object();
+            if (this.$cookies.isKey('mindset')) {
+              cookie_obj = this.$cookies.get('mindset');
+            }
+            cookie_obj.client_id = this.user_id;
+            let cookie_json = JSON.stringify(cookie_obj);
+            this.$cookies.set('mindset',cookie_json,-1);
+            console.log("updated cookie",this.user_id,this.user_email);
+            this.popup_bool = false;
+            this.confirmHash();
           }
           else if ('success' in data) {
             console.log("user email saved:");
-            // this.save_email_bool = true;
-            // this.invitesent_popup = true;
-            // this.confirm_hash_bool = true;
+            this.save_email_bool = true;
+            this.invitesent_popup = true;
+            this.confirm_hash_bool = true;
           }
         });
       })

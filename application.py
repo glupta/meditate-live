@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, make_response, redirect
 from flask_mail import Mail, Message
 from datetime import datetime, timedelta, timezone
+from decouple import config
 import smtplib, ssl
 import json
 import requests
@@ -12,32 +13,26 @@ import time
 import random
 
 #DATABASE CREDENTIALS
-ENDPOINT = "med-live-db2.c2kufiynjcx0.us-east-2.rds.amazonaws.com"
-USR = "admin"
-PWD = "meditate123"
+ENDPOINT = config('AWS_RDB_ENDPOINT')
+USR = config('AWS_RDB_USR')
+PWD = config('AWS_RDB_PWD')
+DBNAME = config('AWS_RDB_NAME')
 PORT = "3306"
 REGION = "us-east-2"
-DBNAME = "medlivedb2"
 os.environ['LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN'] = '1'
 
 #DAILY.CO VIDEO CHAT API CREDENTIALS
 #BEARER = '05535c097075d1938caf827de2217e51a56cf2309a9c738443b8df7a47e2054b' #meditate-live
 #BEARER = '430bfe053ef86e871e12cd960f51996b429fd032612926becd766becdef03963' #meditate
-BEARER = '6f7077acd9ef7c26353b009b1493e4300ccde17fce8fba2dbb0e13c7321f34c9' #mindset-ooo
+BEARER = config('DAILY_BEARER') #mindset-ooo
 DAILY_API = "https://api.daily.co/v1/rooms/"
 
 #EMAIL CREDENTIALS
 #GMAIL: meditateliveorg@gmail.com
-EMAIL_USR = "mindset.social2020@gmail.com"
-EMAIL_PWD = "wilson@123"
+EMAIL_USR = config('MDS_EMAIL_USR')
+EMAIL_PWD = config('MDS_EMAIL_PWD')
 EMAIL_SVR = "smtp.gmail.com"
 EMAIL_PORT = 465
-
-#AWS SES: noreply@meditatelive.org
-#EMAIL_USR = "AKIAXFVDPD5FIFSCXQNZ"
-#EMAIL_PWD = "BHcdWLEuyvQaSi86s1ACU7EVYF2kUmi/CSW7ffLEVQId"
-#EMAIL_SVR = "email-smtp.us-east-2.amazonaws.com"
-#EMAIL_PORT = 465
 
 SCHED_TIMES = [0,12]
 
@@ -45,16 +40,16 @@ app = Flask(__name__,
             static_folder="./dist/static",
             template_folder="./dist")
 
-app.config.update(
-	DEBUG=True,
-	#EMAIL SETTINGS
-	MAIL_SERVER='smtp.gmail.com',
-	MAIL_PORT=465,
-	MAIL_USE_SSL=True,
-	MAIL_USERNAME = 'mindset.social2020@gmail.com',
-	MAIL_PASSWORD = 'wilson@123'
-	)
-mail = Mail(app)
+# app.config.update(
+# 	DEBUG=True,
+# 	#EMAIL SETTINGS
+# 	MAIL_SERVER='smtp.gmail.com',
+# 	MAIL_PORT=465,
+# 	MAIL_USE_SSL=True,
+# 	MAIL_USERNAME = 'mindset.social2020@gmail.com',
+# 	MAIL_PASSWORD = 'wilson@123'
+# 	)
+# mail = Mail(app)
 
 @app.before_request #redirects http to https
 def before_request():
@@ -249,8 +244,8 @@ def store_email():
 	#send confirmation emails
 	if "localhost" in request.url :
 		confirm_url = 'http://localhost:5000/schedule'
-	elif "mindset" in request.url :
-		confirm_url = 'http://mindset.social/schedule'
+	elif "meditate" in request.url :
+		confirm_url = 'http://meditate.mindset.ooo/schedule'
 	else :
 		confirm_url = 'meditatelive.org/schedule'
 
@@ -473,8 +468,6 @@ def sched_new():
 	#send confirmation email with link to waiting room
 	if "localhost" in request.url :
 		confirm_url = 'http://localhost:5000/schedule'
-	elif "mindset" in request.url :
-		confirm_url = 'http://mindset.social/schedule'
 	else :
 		confirm_url = 'meditatelive.org/schedule'
 
@@ -643,8 +636,6 @@ def sched_public():
 
 	if "localhost" in request.url :
 		confirm_url = 'http://localhost:5000/schedule'
-	elif "mindset" in request.url :
-		confirm_url = 'http://mindset.social/schedule'
 	else :
 		confirm_url = 'meditatelive.org/schedule'
 
@@ -834,8 +825,6 @@ def sched_invite():
 
 	if "localhost" in request.url :
 		confirm_url = 'http://localhost:5000/schedule'
-	elif "mindset" in request.url :
-		confirm_url = 'http://mindset.social/schedule'
 	else :
 		confirm_url = 'meditatelive.org/schedule'
 

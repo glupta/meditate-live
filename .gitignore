@@ -3,7 +3,7 @@ ngrok
 __pycache__
 dist
 npm-debug.log
-
+.env
 
 #files
 frontend/ScheduleSession.vue
